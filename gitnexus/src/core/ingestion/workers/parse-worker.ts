@@ -118,7 +118,7 @@ interface ParsedRelationship {
   id: string;
   sourceId: string;
   targetId: string;
-  type: 'DEFINES' | 'HAS_METHOD' | 'HAS_PROPERTY';
+  type: 'DEFINES' | 'HAS_METHOD' | 'HAS_PROPERTY' | 'DISPATCHES_TO';
   confidence: number;
   reason: string;
 }
@@ -1524,6 +1524,11 @@ const processFileGroup = (
     // patterns overlap with the same source range.
     const processedDefinitionNodes = new Set<number>();
 
+    // Per-file multimethod tracking: defmulti name → Function nodeId; defmethod
+    // emissions accumulate then resolve to DISPATCHES_TO edges at end of file.
+    const multimethodNodeIdByName = new Map<string, string>();
+    const pendingDispatchEdges: Array<{ methodNodeId: string; multiName: string }> = [];
+
     for (const match of matches) {
       const captureMap: Record<string, SyntaxNode> = {};
       for (const c of match.captures) {
@@ -2098,6 +2103,13 @@ const processFileGroup = (
         );
         arityTag += constTagForId(defMethodMap, nodeName, arityForId, defMethodInfo, groups);
       }
+      // Multimethod dispatch: Clojure-style (defmethod foo :dispatch …) emits the
+      // same `name` for every arm; the @dispatch.value capture suffixes the ID so
+      // each defmethod becomes a distinct Method node.
+      const dispatchValueText = captureMap['dispatch.value']?.text;
+      if (dispatchValueText && nodeLabel === 'Method') {
+        arityTag += `::${dispatchValueText}`;
+      }
       const nodeId = generateId(nodeLabel, `${file.path}:${qualifiedName}${arityTag}`);
       const classNodeForSymbol = definitionNode || nameNode;
       const qualifiedTypeName =
@@ -2229,10 +2241,20 @@ const processFileGroup = (
           ...(description !== undefined ? { description } : {}),
           ...methodProps,
           ...(declaredType !== undefined ? { declaredType } : {}),
+          ...(dispatchValueText !== undefined ? { dispatchValue: dispatchValueText } : {}),
+          ...(captureMap['multimethod'] !== undefined ? { isMultimethod: true } : {}),
         },
       });
 
       // enclosingClassId already computed above (before nodeId generation)
+
+      // Multimethod bookkeeping (Clojure): remember defmulti IDs and queue
+      // defmethod nodes until we've seen the whole file.
+      if (captureMap['multimethod']) {
+        multimethodNodeIdByName.set(nodeName, nodeId);
+      } else if (dispatchValueText && nodeLabel === 'Method') {
+        pendingDispatchEdges.push({ methodNodeId: nodeId, multiName: nodeName });
+      }
 
       result.symbols.push({
         filePath: file.path,
@@ -2289,6 +2311,22 @@ const processFileGroup = (
           reason: '',
         });
       }
+    }
+
+    // Emit DISPATCHES_TO edges from each defmethod Method to its defmulti
+    // Function. Processed at end-of-file so forward references (defmethod
+    // declared above defmulti) resolve correctly.
+    for (const { methodNodeId, multiName } of pendingDispatchEdges) {
+      const multiId = multimethodNodeIdByName.get(multiName);
+      if (!multiId) continue;
+      result.relationships.push({
+        id: generateId('DISPATCHES_TO', `${methodNodeId}->${multiId}`),
+        sourceId: methodNodeId,
+        targetId: multiId,
+        type: 'DISPATCHES_TO',
+        confidence: 1.0,
+        reason: '',
+      });
     }
 
     // Extract framework routes via provider detection (e.g., Laravel routes.php)

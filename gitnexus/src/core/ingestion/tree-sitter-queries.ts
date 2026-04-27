@@ -1367,22 +1367,28 @@ export const CLOJURE_QUERIES = `
   (sym_lit (sym_name) @name)
   (#match? @head "^(defn|defn-|definline)$")) @definition.function
 
-; (defmulti name dispatch-fn) — also a Function node; the isMultimethod tag
-; is applied later in Phase 6 via labelOverride / property enrichment.
+; (defmulti name dispatch-fn) — also a Function node; the @multimethod flag
+; is consumed by the parse-worker which sets isMultimethod=true.
 (list_lit
   .
   (sym_lit (sym_name) @head)
   .
   (sym_lit (sym_name) @name)
-  (#eq? @head "defmulti")) @definition.function
+  (#eq? @head "defmulti")) @definition.function @multimethod
 
-; (defmethod name dispatch-val [args] body) — currently a Method node; the
-; DISPATCHES_TO edge to the corresponding defmulti lands in Phase 6.
+; (defmethod name dispatch-val [args] body) — Method node carrying its
+; dispatch value. The parse-worker:
+;   - sets the dispatchValue property,
+;   - appends "::dispatch" to qualifiedName so multiple defmethods on the same
+;     multimethod don't dedupe to one ID,
+;   - emits a DISPATCHES_TO edge from this Method to the matching defmulti.
 (list_lit
   .
   (sym_lit (sym_name) @head)
   .
   (sym_lit (sym_name) @name)
+  .
+  (_) @dispatch.value
   (#eq? @head "defmethod")) @definition.method
 
 ; (defprotocol Name (method [args]) …) — a Trait in graph terms.

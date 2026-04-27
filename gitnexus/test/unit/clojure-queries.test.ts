@@ -75,11 +75,18 @@ describe('Clojure tree-sitter queries', () => {
       const tree = parser.parse(SOURCE);
       const Q = new (Parser as any).Query(Clojure, CLOJURE_QUERIES);
       const matches = Q.matches(tree.rootNode);
-      const captured: Array<{ kind: string; name: string }> = [];
+      const captured: Array<{
+        kind: string;
+        name: string;
+        dispatchValue?: string;
+        isMultimethod?: boolean;
+      }> = [];
       for (const m of matches) {
         let kind: string | undefined;
         let name: string | undefined;
         let importSource: string | undefined;
+        let dispatchValue: string | undefined;
+        let isMultimethod = false;
         for (const c of m.captures) {
           if (c.name.startsWith('definition.')) {
             kind = c.name;
@@ -89,12 +96,21 @@ describe('Clojure tree-sitter queries', () => {
             name = c.node.text;
           } else if (c.name === 'import.source') {
             importSource = c.node.text;
+          } else if (c.name === 'dispatch.value') {
+            dispatchValue = c.node.text;
+          } else if (c.name === 'multimethod') {
+            isMultimethod = true;
           }
         }
         if (kind === 'import' && importSource) {
           captured.push({ kind, name: importSource });
         } else if (kind && name) {
-          captured.push({ kind, name });
+          captured.push({
+            kind,
+            name,
+            ...(dispatchValue !== undefined ? { dispatchValue } : {}),
+            ...(isMultimethod ? { isMultimethod: true } : {}),
+          });
         }
       }
       return captured;
@@ -144,12 +160,21 @@ describe('Clojure tree-sitter queries', () => {
       expect(captured).toContainEqual({ kind: 'definition.interface', name: 'IRunnable' });
     });
 
-    it('emits definition.method for each defmethod', () => {
+    it('emits definition.method for each defmethod with its dispatch value', () => {
       const captured = runQueries();
       const methods = captured.filter((c) => c.kind === 'definition.method');
-      // Both :dog and :cat defmethods should match (dedup by dispatch value happens later, in Phase 6)
       expect(methods.length).toBeGreaterThanOrEqual(2);
       expect(methods.every((m) => m.name === 'describe')).toBe(true);
+      const dispatchValues = methods.map((m) => m.dispatchValue);
+      expect(dispatchValues).toEqual(expect.arrayContaining([':dog', ':cat']));
+    });
+
+    it('flags defmulti with @multimethod capture', () => {
+      const captured = runQueries();
+      const multi = captured.find(
+        (c) => c.kind === 'definition.function' && c.name === 'describe',
+      );
+      expect(multi?.isMultimethod).toBe(true);
     });
 
     it('emits import captures for :require and :import clauses', () => {

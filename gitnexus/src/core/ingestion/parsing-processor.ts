@@ -427,6 +427,11 @@ const processParsingSequential = async (
         })
       : null;
 
+    // Per-file multimethod tracking: defmulti name → Function nodeId; defmethod
+    // emissions accumulate then resolve to DISPATCHES_TO edges at end of file.
+    const multimethodNodeIdByName = new Map<string, string>();
+    const pendingDispatchEdges: Array<{ methodNodeId: string; multiName: string }> = [];
+
     matches.forEach((match) => {
       const captureMap: Record<string, SyntaxNode> = {};
 
@@ -572,6 +577,12 @@ const processParsingSequential = async (
           cached.groups,
         );
       }
+      // Multimethod dispatch (Clojure): suffix the ID with the dispatch value
+      // so multiple defmethods on the same multimethod don't dedupe.
+      const dispatchValueText = captureMap['dispatch.value']?.text;
+      if (dispatchValueText && nodeLabel === 'Method') {
+        arityTag += `::${dispatchValueText}`;
+      }
       const nodeId = generateId(nodeLabel, `${file.path}:${qualifiedName}${arityTag}`);
       const classNodeForSymbol = definitionNodeForRange || definitionNode || nameNode;
       const qualifiedTypeName =
@@ -612,10 +623,20 @@ const processParsingSequential = async (
               }
             : {}),
           ...methodProps,
+          ...(dispatchValueText !== undefined ? { dispatchValue: dispatchValueText } : {}),
+          ...(captureMap['multimethod'] !== undefined ? { isMultimethod: true } : {}),
         },
       };
 
       graph.addNode(node);
+
+      // Multimethod bookkeeping (Clojure): record defmulti IDs and queue
+      // defmethod nodes until end-of-file so forward-referenced multis resolve.
+      if (captureMap['multimethod']) {
+        multimethodNodeIdByName.set(nodeName, nodeId);
+      } else if (dispatchValueText && nodeLabel === 'Method') {
+        pendingDispatchEdges.push({ methodNodeId: nodeId, multiName: nodeName });
+      }
 
       // enclosingClassId already computed above (before nodeId generation)
 
@@ -694,6 +715,21 @@ const processParsingSequential = async (
         });
       }
     });
+
+    // Emit DISPATCHES_TO edges from defmethod Methods to their defmulti
+    // Function. Resolved at end-of-file so forward references work.
+    for (const { methodNodeId, multiName } of pendingDispatchEdges) {
+      const multiId = multimethodNodeIdByName.get(multiName);
+      if (!multiId) continue;
+      graph.addRelationship({
+        id: generateId('DISPATCHES_TO', `${methodNodeId}->${multiId}`),
+        sourceId: methodNodeId,
+        targetId: multiId,
+        type: 'DISPATCHES_TO',
+        confidence: 1.0,
+        reason: '',
+      });
+    }
   }
 
   if (skippedByLang && skippedByLang.size > 0) {

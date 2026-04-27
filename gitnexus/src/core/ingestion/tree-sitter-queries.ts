@@ -1499,6 +1499,23 @@ export const CLOJURE_QUERIES = `
   (kwd_lit (kwd_name) @kw)
   (sym_lit (sym_name) @import.source)
   (#eq? @kw "import")) @import
+
+; ── Calls ────────────────────────────────────────────────────────────────────
+;
+; In Clojure every "function call" is a list whose head is a symbol:
+;   (foo arg1 arg2)
+; We capture the head symbol as @call.name and the whole list_lit as @call.
+;
+; Special forms, macros, and definition heads must be filtered out — they look
+; like calls structurally but are not call sites in the graph sense. The
+; #not-match? predicate excludes them at query time so they never reach the
+; call processor. Java-interop dot-prefix forms .method are still captured
+; and treated as member calls; namespace-qualified Class/method forms keep
+; their full text (including the qualifier) as call.name.
+(list_lit
+  .
+  (sym_lit) @call.name
+  (#not-match? @call.name "^(def|defn|defn-|definline|defmulti|defmethod|defprotocol|defrecord|deftype|definterface|defmacro|defonce|defstruct|ns|in-ns|require|use|import|refer|let|let\\*|letfn|letfn\\*|if|if-not|if-let|if-some|when|when-not|when-let|when-some|when-first|do|fn|fn\\*|loop|loop\\*|recur|quote|var|try|catch|finally|throw|monitor-enter|monitor-exit|new|set!|\\.|\\.\\.|->|->>|as->|some->|some->>|cond|cond->|cond->>|condp|case|or|and|for|doseq|dotimes|while|with-open|with-redefs|with-local-vars|with-precision|with-bindings|with-meta|binding|locking|comment|declare|gen-class|proxy|reify|extend|extend-protocol|extend-type|assert|lazy-seq|delay|future|deref|sync|dosync|io!|memfn|the-ns)$")) @call
 `;
 
 import { SupportedLanguages } from 'gitnexus-shared';

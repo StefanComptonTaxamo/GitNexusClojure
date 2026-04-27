@@ -81,12 +81,15 @@ describe('Clojure tree-sitter queries', () => {
         dispatchValue?: string;
         isMultimethod?: boolean;
       }> = [];
+      const calls: string[] = [];
       for (const m of matches) {
         let kind: string | undefined;
         let name: string | undefined;
         let importSource: string | undefined;
         let dispatchValue: string | undefined;
         let isMultimethod = false;
+        let callName: string | undefined;
+        let isCall = false;
         for (const c of m.captures) {
           if (c.name.startsWith('definition.')) {
             kind = c.name;
@@ -100,7 +103,14 @@ describe('Clojure tree-sitter queries', () => {
             dispatchValue = c.node.text;
           } else if (c.name === 'multimethod') {
             isMultimethod = true;
+          } else if (c.name === 'call') {
+            isCall = true;
+          } else if (c.name === 'call.name') {
+            callName = c.node.text;
           }
+        }
+        if (isCall && callName) {
+          calls.push(callName);
         }
         if (kind === 'import' && importSource) {
           captured.push({ kind, name: importSource });
@@ -113,55 +123,55 @@ describe('Clojure tree-sitter queries', () => {
           });
         }
       }
-      return captured;
+      return { captured, calls };
     };
 
     it('emits a definition.module for the ns form', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       expect(captured).toContainEqual({ kind: 'definition.module', name: 'sample.core' });
     });
 
     it('emits definition.function for defn / defn- / definline / defmulti', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       const fns = captured.filter((c) => c.kind === 'definition.function').map((c) => c.name);
       expect(fns).toEqual(expect.arrayContaining(['greet', 'internal-helper', 'boost', 'describe']));
     });
 
     it('emits definition.variable for top-level def with non-fn value', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       expect(captured).toContainEqual({ kind: 'definition.variable', name: 'pi' });
     });
 
     it('promotes (def name (fn …)) to definition.function', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       const fns = captured.filter((c) => c.kind === 'definition.function').map((c) => c.name);
       expect(fns).toContain('addone');
     });
 
     it('promotes (def name #(…)) anonymous-fn literals to definition.function', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       const fns = captured.filter((c) => c.kind === 'definition.function').map((c) => c.name);
       expect(fns).toContain('doubler');
     });
 
     it('emits definition.trait for defprotocol', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       expect(captured).toContainEqual({ kind: 'definition.trait', name: 'IShape' });
     });
 
     it('emits definition.class for defrecord and deftype', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       const classes = captured.filter((c) => c.kind === 'definition.class').map((c) => c.name);
       expect(classes).toEqual(expect.arrayContaining(['Circle', 'Square']));
     });
 
     it('emits definition.interface for definterface', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       expect(captured).toContainEqual({ kind: 'definition.interface', name: 'IRunnable' });
     });
 
     it('emits definition.method for each defmethod with its dispatch value', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       const methods = captured.filter((c) => c.kind === 'definition.method');
       expect(methods.length).toBeGreaterThanOrEqual(2);
       expect(methods.every((m) => m.name === 'describe')).toBe(true);
@@ -170,7 +180,7 @@ describe('Clojure tree-sitter queries', () => {
     });
 
     it('flags defmulti with @multimethod capture', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       const multi = captured.find(
         (c) => c.kind === 'definition.function' && c.name === 'describe',
       );
@@ -178,9 +188,75 @@ describe('Clojure tree-sitter queries', () => {
     });
 
     it('emits import captures for :require and :import clauses', () => {
-      const captured = runQueries();
+      const { captured } = runQueries();
       const imports = captured.filter((c) => c.kind === 'import').map((c) => c.name);
       expect(imports).toEqual(expect.arrayContaining(['clojure.string', 'foo.bar', 'java.util']));
+    });
+  });
+
+  describe.skipIf(!Clojure)('call captures', () => {
+    const runCallQuery = (src: string) => {
+      const parser = new Parser();
+      parser.setLanguage(Clojure);
+      const tree = parser.parse(src);
+      const Q = new (Parser as any).Query(Clojure, CLOJURE_QUERIES);
+      const matches = Q.matches(tree.rootNode);
+      const calls: string[] = [];
+      for (const m of matches) {
+        let isCall = false;
+        let name: string | undefined;
+        for (const c of m.captures) {
+          if (c.name === 'call') isCall = true;
+          else if (c.name === 'call.name') name = c.node.text;
+        }
+        if (isCall && name) calls.push(name);
+      }
+      return calls;
+    };
+
+    it('captures plain function calls as @call', () => {
+      const calls = runCallQuery('(defn run [] (greet "world") (foo) (bar 1 2))');
+      expect(calls).toEqual(expect.arrayContaining(['greet', 'foo', 'bar']));
+    });
+
+    it('does not capture special forms or definition heads as calls', () => {
+      const calls = runCallQuery(`
+        (ns sample)
+        (defn outer []
+          (let [x 1] (when (pos? x) (do (println x))))
+          (if true 1 2)
+          (try (foo) (catch Exception e (bar))))
+      `);
+      // Special-form heads (let, when, do, if, try, catch, defn, ns) must NOT be captured.
+      expect(calls).not.toContain('let');
+      expect(calls).not.toContain('when');
+      expect(calls).not.toContain('do');
+      expect(calls).not.toContain('if');
+      expect(calls).not.toContain('try');
+      expect(calls).not.toContain('catch');
+      expect(calls).not.toContain('defn');
+      expect(calls).not.toContain('ns');
+      // Real calls (println / foo / bar / pos?) must still appear.
+      expect(calls).toEqual(expect.arrayContaining(['println', 'foo', 'bar', 'pos?']));
+    });
+
+    it('preserves namespace qualifier in call.name (str/upper-case, Math/abs)', () => {
+      const calls = runCallQuery('(defn run [] (str/upper-case "x") (Math/abs -3))');
+      expect(calls).toContain('str/upper-case');
+      expect(calls).toContain('Math/abs');
+    });
+
+    it('captures Java interop dot-prefix forms (.method obj …)', () => {
+      const calls = runCallQuery('(defn run [obj] (.toString obj) (.length "hello"))');
+      expect(calls).toEqual(expect.arrayContaining(['.toString', '.length']));
+    });
+
+    it('does not capture threading-macro forms `->` / `->>` (deferred)', () => {
+      // Threading macros require expanding the pipeline into individual call sites;
+      // see Phase 4 follow-up. For now, the macro head itself must not appear as a call.
+      const calls = runCallQuery('(defn run [x] (-> x foo bar) (->> x baz quux))');
+      expect(calls).not.toContain('->');
+      expect(calls).not.toContain('->>');
     });
   });
 });

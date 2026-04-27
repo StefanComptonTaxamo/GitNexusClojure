@@ -47,6 +47,14 @@ export const EXTENSIONS = [
   '.swift',
   // Ruby
   '.rb',
+  // Clojure
+  '.clj',
+  '.cljc',
+  '.cljs',
+  '.edn',
+  '/core.clj',
+  '/core.cljc',
+  '/core.cljs',
 ];
 
 /**

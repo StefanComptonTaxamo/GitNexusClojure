@@ -65,6 +65,8 @@ describe('Clojure tree-sitter queries', () => {
 (defmulti describe :type)
 (defmethod describe :dog [_] "A dog")
 (defmethod describe :cat [_] "A cat")
+(def addone (fn [x] (+ x 1)))
+(def doubler #(* 2 %))
 `;
 
     const runQueries = () => {
@@ -109,9 +111,21 @@ describe('Clojure tree-sitter queries', () => {
       expect(fns).toEqual(expect.arrayContaining(['greet', 'internal-helper', 'boost', 'describe']));
     });
 
-    it('emits definition.variable for top-level def', () => {
+    it('emits definition.variable for top-level def with non-fn value', () => {
       const captured = runQueries();
       expect(captured).toContainEqual({ kind: 'definition.variable', name: 'pi' });
+    });
+
+    it('promotes (def name (fn …)) to definition.function', () => {
+      const captured = runQueries();
+      const fns = captured.filter((c) => c.kind === 'definition.function').map((c) => c.name);
+      expect(fns).toContain('addone');
+    });
+
+    it('promotes (def name #(…)) anonymous-fn literals to definition.function', () => {
+      const captured = runQueries();
+      const fns = captured.filter((c) => c.kind === 'definition.function').map((c) => c.name);
+      expect(fns).toContain('doubler');
     });
 
     it('emits definition.trait for defprotocol', () => {

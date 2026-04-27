@@ -19,6 +19,8 @@
 import { SupportedLanguages } from 'gitnexus-shared';
 import { defineLanguage } from '../language-provider.js';
 import { LANGUAGE_QUERIES } from '../tree-sitter-queries.js';
+import { createImportResolver } from '../import-resolvers/resolver-factory.js';
+import { clojureImportConfig } from '../import-resolvers/configs/clojure.js';
 
 export const clojureProvider = defineLanguage({
   id: SupportedLanguages.Clojure,
@@ -33,5 +35,5 @@ export const clojureProvider = defineLanguage({
     extractParameter: () => null,
   },
   exportChecker: () => true,
-  importResolver: () => null,
+  importResolver: createImportResolver(clojureImportConfig),
 });

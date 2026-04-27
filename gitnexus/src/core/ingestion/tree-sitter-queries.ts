@@ -1350,8 +1350,6 @@ export const DART_QUERIES = `
 //     free-floating heritage channel.
 //   - No threading-macro expansion: `(-> x f g)` re-threads `x` through `f`/`g`
 //     — needs a bespoke call extractor.
-//   - `def` is captured as a variable; we do not yet differentiate
-//     `(def x (fn …))` (which should be a function) from `(def x 42)`.
 //   - `:refer` named bindings are not yet emitted.
 //   - Reader conditionals `#?(:clj … :cljs …)` are walked as plain lists; the
 //     `dialect` tag is not yet applied.
@@ -1427,6 +1425,31 @@ export const CLOJURE_QUERIES = `
   .
   (sym_lit (sym_name) @name)
   (#eq? @head "def")) @definition.variable
+
+; (def name (fn …)) — promote to a Function. The plain @definition.variable
+; capture above also matches the same list_lit; the parse-worker dedup keeps
+; the higher-priority Function label and discards the Variable.
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  .
+  (list_lit
+    .
+    (sym_lit (sym_name) @fn-head)
+    (#eq? @fn-head "fn"))
+  (#eq? @head "def")) @definition.function
+
+; (def name #(…)) — anonymous function reader macro literal. Same promotion.
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  .
+  (anon_fn_lit)
+  (#eq? @head "def")) @definition.function
 
 ; ── Imports ──────────────────────────────────────────────────────────────────
 ;

@@ -89,6 +89,17 @@ export type NodeProperties = {
   responseKeys?: string[];
   errorKeys?: string[];
   middleware?: string[];
+  // Clojure-specific (RFC #909 follow-up)
+  /** Reader-conditional dialect for symbols defined inside `#?(:clj …)` /
+   *  `#?(:cljs …)` branches in `.cljc` files; or the file dialect for
+   *  `.clj`/`.cljs` files. Absent for non-Clojure symbols. */
+  dialect?: 'clj' | 'cljs' | 'cljc-clj' | 'cljc-cljs';
+  /** `defmulti` flag — true for Clojure multimethod dispatch root nodes. */
+  isMultimethod?: boolean;
+  /** Stringified EDN dispatch value for `defmethod` nodes; truncated to a
+   *  reasonable length. Only present alongside an outgoing `DISPATCHES_TO`
+   *  edge. */
+  dispatchValue?: string;
   // Extensible
   [key: string]: unknown;
 };
@@ -115,7 +126,8 @@ export type RelationshipType =
   | 'HANDLES_TOOL'
   | 'ENTRY_POINT_OF'
   | 'WRAPS'
-  | 'QUERIES';
+  | 'QUERIES'
+  | 'DISPATCHES_TO';
 
 export interface GraphNode {
   id: string;

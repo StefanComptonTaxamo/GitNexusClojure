@@ -897,6 +897,7 @@ export const AST_FRAMEWORK_PATTERNS_BY_LANGUAGE = {
   ],
   [SupportedLanguages.Vue]: [], // Vue uses TypeScript AST framework detection
   [SupportedLanguages.Cobol]: [], // Standalone regex processor — no AST framework patterns
+  [SupportedLanguages.Clojure]: [], // No AST framework patterns yet
 } satisfies Record<SupportedLanguages, AstFrameworkPatternConfig[]>;
 
 /** Pre-lowercased patterns for O(1) pattern matching at runtime */

@@ -1,0 +1,13 @@
+{
+  "name": "tree-sitter-clojure",
+  "version": "0.4.0",
+  "description": "tree-sitter grammar for Clojure — vendored from sogaiu/tree-sitter-clojure (npm 0.4.0) with a modern N-API binding so it builds against current Node.js.",
+  "repository": "https://github.com/sogaiu/tree-sitter-clojure",
+  "license": "MIT",
+  "main": "bindings/node",
+  "types": "bindings/node",
+  "_vendoredBy": "gitnexus — build deps (node-addon-api, node-gyp-build) are hoisted into gitnexus/package.json optionalDependencies, and native compilation is performed by gitnexus/scripts/build-tree-sitter-clojure.cjs at gitnexus postinstall. Do NOT re-add a dependencies block or an install script here — see https://github.com/abhigyanpatwari/GitNexus/issues/836 (ENOTEMPTY on global upgrade).",
+  "peerDependencies": {
+    "tree-sitter": ">=0.21.0"
+  }
+}

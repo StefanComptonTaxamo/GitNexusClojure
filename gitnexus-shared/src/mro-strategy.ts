@@ -34,6 +34,15 @@
  *   becomes a simple left-to-right scan. Miss NEVER falls through to file-scoped
  *   lookup — null-routes or honors `fallback`.
  *
+ *   - `'clojure-protocol'` (Clojure):
+ *      Protocol/multimethod dispatch view. Heritage edges come from
+ *      `extend-protocol`/`extend-type`/`extend` declarations that may live in
+ *      a file containing neither the type nor the protocol (retroactive
+ *      heritage — see `heritage-processor.ts` free-floating channel).
+ *      Multimethod dispatch (`defmulti`/`defmethod`) is modelled separately
+ *      via the `DISPATCHES_TO` edge — the MRO walk does NOT chase
+ *      `DISPATCHES_TO`; consumers of `impact`/`context` query it explicitly.
+ *
  * @see model/resolve.ts § lookupMethodByOwnerWithMRO
  * @see languages/ruby.ts § selectDispatch
  */
@@ -43,4 +52,5 @@ export type MroStrategy =
   | 'leftmost-base'
   | 'implements-split'
   | 'qualified-syntax'
-  | 'ruby-mixin';
+  | 'ruby-mixin'
+  | 'clojure-protocol';

@@ -235,9 +235,11 @@ export const streamAllCSVsToDisk = async (
   );
   const folderWriter = new BufferedCSVWriter(path.join(csvDir, 'folder.csv'), 'id,name,filePath');
   const codeElementHeader = 'id,name,filePath,startLine,endLine,isExported,content,description';
+  const functionHeader =
+    'id,name,filePath,startLine,endLine,isExported,content,description,dialect,isMultimethod,dispatchValue';
   const functionWriter = new BufferedCSVWriter(
     path.join(csvDir, 'function.csv'),
-    codeElementHeader,
+    functionHeader,
   );
   const classWriter = new BufferedCSVWriter(path.join(csvDir, 'class.csv'), codeElementHeader);
   const interfaceWriter = new BufferedCSVWriter(
@@ -245,7 +247,7 @@ export const streamAllCSVsToDisk = async (
     codeElementHeader,
   );
   const methodHeader =
-    'id,name,filePath,startLine,endLine,isExported,content,description,parameterCount,returnType';
+    'id,name,filePath,startLine,endLine,isExported,content,description,parameterCount,returnType,dialect,isMultimethod,dispatchValue';
   const methodWriter = new BufferedCSVWriter(path.join(csvDir, 'method.csv'), methodHeader);
   const codeElemWriter = new BufferedCSVWriter(
     path.join(csvDir, 'codeelement.csv'),
@@ -396,6 +398,9 @@ export const streamAllCSVsToDisk = async (
             escapeCSVField(node.properties.description || ''),
             escapeCSVNumber(node.properties.parameterCount, 0),
             escapeCSVField(node.properties.returnType || ''),
+            escapeCSVField(node.properties.dialect || ''),
+            node.properties.isMultimethod ? 'true' : 'false',
+            escapeCSVField(node.properties.dispatchValue || ''),
           ].join(','),
         );
         break;
@@ -448,7 +453,27 @@ export const streamAllCSVsToDisk = async (
         );
         break;
       default: {
-        // Code element nodes (Function, Class, Interface, CodeElement)
+        // Function gets its own row shape (with Clojure dialect/multimethod columns).
+        if (node.label === 'Function') {
+          const content = await extractContent(node, contentCache);
+          await functionWriter.addRow(
+            [
+              escapeCSVField(node.id),
+              escapeCSVField(node.properties.name || ''),
+              escapeCSVField(node.properties.filePath || ''),
+              escapeCSVNumber(node.properties.startLine, -1),
+              escapeCSVNumber(node.properties.endLine, -1),
+              node.properties.isExported ? 'true' : 'false',
+              escapeCSVField(content),
+              escapeCSVField(node.properties.description || ''),
+              escapeCSVField(node.properties.dialect || ''),
+              node.properties.isMultimethod ? 'true' : 'false',
+              escapeCSVField(node.properties.dispatchValue || ''),
+            ].join(','),
+          );
+          break;
+        }
+        // Other code element nodes (Class, Interface, CodeElement)
         const writer = codeWriterMap[node.label];
         if (writer) {
           const content = await extractContent(node, contentCache);

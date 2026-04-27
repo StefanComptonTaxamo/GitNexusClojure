@@ -46,6 +46,9 @@ CREATE NODE TABLE Function (
   isExported BOOLEAN,
   content STRING,
   description STRING,
+  dialect STRING,
+  isMultimethod BOOLEAN,
+  dispatchValue STRING,
   PRIMARY KEY (id)
 )`;
 
@@ -87,6 +90,9 @@ CREATE NODE TABLE Method (
   description STRING,
   parameterCount INT32,
   returnType STRING,
+  dialect STRING,
+  isMultimethod BOOLEAN,
+  dispatchValue STRING,
   PRIMARY KEY (id)
 )`;
 

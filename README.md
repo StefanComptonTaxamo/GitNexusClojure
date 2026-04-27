@@ -575,6 +575,9 @@ GitNexus builds a complete knowledge graph of your codebase through a multi-phas
 | C | — | — | ✓ | — | ✓ | ✓ | — | ✓ | ✓ |
 | C++ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ |
 | Dart | ✓ | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ |
+| Clojure¹ | partial | — | partial | — | — | — | — | — | partial |
+
+¹ Clojure support is **experimental**. The current cut produces Module / Function / Method / Class / Trait / Interface / Variable nodes for the core forms (`ns`, `defn`/`defn-`/`definline`, `def`, `defprotocol`, `defrecord`/`deftype`, `definterface`, `defmulti`, `defmethod`) and captures `:require`/`:use`/`:import` clauses. Call edges, retroactive heritage (`extend-protocol`/`extend-type`/`extend`), `:refer` named bindings, multimethod dispatch (`DISPATCHES_TO`), reader-conditional dialect tagging, and the dedicated scope resolver are landing in follow-up PRs.
 
 **Imports** — cross-file import resolution · **Named Bindings** — `import { X as Y }` / re-export tracking · **Exports** — public/exported symbol detection · **Heritage** — class inheritance, interfaces, mixins · **Type Annotations** — explicit type extraction for receiver resolution · **Constructor Inference** — infer receiver type from constructor calls (`self`/`this` resolution included for all languages) · **Config** — language toolchain config parsing (tsconfig, go.mod, etc.) · **Frameworks** — AST-based framework pattern detection · **Entry Points** — entry point scoring heuristics
 

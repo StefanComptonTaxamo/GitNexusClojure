@@ -1358,7 +1358,7 @@ export const DART_QUERIES = `
 //
 // All of these land in follow-up phases.
 
-const CLOJURE_QUERIES = `
+export const CLOJURE_QUERIES = `
 ; ── Definitions ──────────────────────────────────────────────────────────────
 
 ; (defn name [args] body) / (defn- name …) / (definline name …)

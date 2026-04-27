@@ -4,6 +4,10 @@ All notable changes to GitNexus will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Clojure language support (experimental)** — first-class indexing for `.clj`/`.cljc`/`.cljs`/`.edn` via vendored `tree-sitter-clojure`. Captures `ns`, `defn`/`defn-`/`definline`, `def`, `defprotocol`, `defrecord`/`deftype`, `definterface`, `defmulti`, `defmethod`, `:require`/`:use`/`:import`. New `DISPATCHES_TO` graph relationship, `clojure-protocol` MroStrategy, and `dialect`/`isMultimethod`/`dispatchValue` node properties prepared for the multimethod modeling, retroactive heritage, and reader-conditional phases that follow.
+
 ### Changed
 - Migrated from KuzuDB to LadybugDB v0.15 (`@ladybugdb/core`, `@ladybugdb/wasm-core`)
 - Renamed all internal paths from `kuzu` to `lbug` (storage: `.gitnexus/kuzu` → `.gitnexus/lbug`)

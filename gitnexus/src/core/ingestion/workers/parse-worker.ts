@@ -44,6 +44,13 @@ let Kotlin: TreeSitterLanguage | null = null;
 try {
   Kotlin = _require('tree-sitter-kotlin');
 } catch {}
+
+// tree-sitter-clojure is vendored under gitnexus/vendor/tree-sitter-clojure and
+// declared as an optionalDependency.
+let Clojure: TreeSitterLanguage | null = null;
+try {
+  Clojure = _require('tree-sitter-clojure');
+} catch {}
 import { getLanguageFromFilename } from 'gitnexus-shared';
 import {
   FUNCTION_NODE_TYPES,
@@ -321,6 +328,7 @@ const languageMap: Record<string, TreeSitterLanguage> = {
   [SupportedLanguages.Vue]: TypeScript.typescript,
   ...(Dart ? { [SupportedLanguages.Dart]: Dart } : {}),
   ...(Swift ? { [SupportedLanguages.Swift]: Swift } : {}),
+  ...(Clojure ? { [SupportedLanguages.Clojure]: Clojure } : {}),
 };
 
 /**

@@ -35,6 +35,14 @@ try {
   Kotlin = _require('tree-sitter-kotlin');
 } catch {}
 
+// tree-sitter-clojure is vendored under gitnexus/vendor/tree-sitter-clojure and
+// declared as an optionalDependency. May not be installed if the native binding
+// failed to build.
+let Clojure: any = null;
+try {
+  Clojure = _require('tree-sitter-clojure');
+} catch {}
+
 let parser: Parser | null = null;
 
 const languageMap: Record<string, any> = {
@@ -54,6 +62,7 @@ const languageMap: Record<string, any> = {
   [SupportedLanguages.Vue]: TypeScript.typescript,
   ...(Dart ? { [SupportedLanguages.Dart]: Dart } : {}),
   ...(Swift ? { [SupportedLanguages.Swift]: Swift } : {}),
+  ...(Clojure ? { [SupportedLanguages.Clojure]: Clojure } : {}),
 };
 
 export const isLanguageAvailable = (language: SupportedLanguages): boolean =>

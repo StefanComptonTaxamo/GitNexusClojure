@@ -37,6 +37,7 @@ export function createHeritageExtractor(
   const actualConfig: HeritageExtractionConfig =
     typeof config === 'string' ? { language: config } : config;
   const callNameSet = actualConfig.callBasedHeritage?.callNames;
+  const formExtractor = actualConfig.formExtractor;
 
   return {
     language: actualConfig.language,
@@ -77,6 +78,18 @@ export function createHeritageExtractor(
           ): HeritageInfo[] | null {
             if (!callNameSet.has(calledName)) return null;
             return actualConfig.callBasedHeritage!.extract(calledName, callNode, context.filePath);
+          },
+        }
+      : {}),
+
+    ...(formExtractor
+      ? {
+          extractForm(
+            formNode: SyntaxNode,
+            headText: string,
+            context: HeritageExtractorContext,
+          ): HeritageInfo[] {
+            return formExtractor.extract(formNode, headText, context.filePath);
           },
         }
       : {}),

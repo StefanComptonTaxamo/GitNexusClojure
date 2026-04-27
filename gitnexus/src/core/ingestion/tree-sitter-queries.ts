@@ -1500,6 +1500,21 @@ export const CLOJURE_QUERIES = `
   (sym_lit (sym_name) @import.source)
   (#eq? @kw "import")) @import
 
+; ── Heritage (extend-protocol / extend-type / extend / defrecord / deftype) ──
+;
+; These forms declare implements-edges from a type to one or more protocols.
+; The shape is variadic and language-specific (alternating type + method-bodies
+; for extend-protocol, alternating protocol + method-bodies for extend-type,
+; etc.) — tree-sitter pattern-matching can't cleanly enumerate the pairs, so
+; we capture the WHOLE list_lit and let the heritage extractor walk it.
+;
+; The heritage processor invokes the Clojure extractor's extractForm hook
+; when both heritage.form and heritage.head are present in the captureMap.
+(list_lit
+  .
+  (sym_lit (sym_name) @heritage.head)
+  (#match? @heritage.head "^(extend-protocol|extend-type|extend|defrecord|deftype)$")) @heritage.form
+
 ; ── Calls ────────────────────────────────────────────────────────────────────
 ;
 ; In Clojure every "function call" is a list whose head is a symbol:

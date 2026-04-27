@@ -72,6 +72,27 @@ export interface HeritageExtractor {
     callNode: SyntaxNode,
     context: HeritageExtractorContext,
   ): HeritageInfo[] | null;
+
+  /**
+   * Extract heritage records from a *form* node that is neither a class
+   * definition nor a call — e.g. Clojure's `extend-protocol`, `extend-type`,
+   * `extend`, or the inline `(defrecord Name [fields] Proto (impl …))`
+   * protocol-impl trailer.
+   *
+   * Such forms can declare an arbitrary number of (type, parent) tuples and
+   * may live in a file that contains neither the type nor the protocol; the
+   * caller resolves the names against the cross-file symbol table after all
+   * files are parsed.
+   *
+   * Drivers (heritage-processor / parse-worker) invoke this whenever a query
+   * match contains the `heritage.form` capture, passing the captured form
+   * list_lit and the head text. Languages that don't override return `[]`.
+   */
+  extractForm?(
+    formNode: SyntaxNode,
+    headText: string,
+    context: HeritageExtractorContext,
+  ): HeritageInfo[];
 }
 
 // ---------------------------------------------------------------------------
@@ -100,5 +121,18 @@ export interface HeritageExtractionConfig {
   callBasedHeritage?: {
     readonly callNames: ReadonlySet<string>;
     extract(calledName: string, callNode: SyntaxNode, filePath: string): HeritageInfo[];
+  };
+
+  /**
+   * Form-based heritage extraction for languages whose retroactive
+   * extension forms (e.g. Clojure `extend-protocol`/`extend-type`/`extend`,
+   * inline `defrecord`/`deftype` protocol blocks) declare heritage on a
+   * whole list/form rather than on a specific class definition.
+   *
+   * Wired through to {@link HeritageExtractor.extractForm}. The factory
+   * surfaces this as the `extractForm` method when present.
+   */
+  formExtractor?: {
+    extract(formNode: SyntaxNode, headText: string, filePath: string): HeritageInfo[];
   };
 }

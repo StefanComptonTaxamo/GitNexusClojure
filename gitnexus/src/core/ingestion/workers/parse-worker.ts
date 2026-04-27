@@ -1980,6 +1980,33 @@ const processFileGroup = (
         }
       }
 
+      // Form-based heritage: the form has no class-definition co-located but
+      // declares heritage edges (Clojure extend-protocol/extend-type/extend,
+      // inline defrecord/deftype protocol blocks). Mirror the heritage-processor
+      // routing so worker-driven languages get parity if they ever opt in.
+      if (
+        provider.heritageExtractor?.extractForm &&
+        captureMap['heritage.form'] &&
+        captureMap['heritage.head']
+      ) {
+        const items = provider.heritageExtractor.extractForm(
+          captureMap['heritage.form'],
+          captureMap['heritage.head'].text,
+          { filePath: file.path, language },
+        );
+        for (const item of items) {
+          result.heritage.push({
+            filePath: file.path,
+            className: item.className,
+            parentName: item.parentName,
+            kind: item.kind,
+          });
+        }
+        if (items.length > 0) {
+          continue;
+        }
+      }
+
       const definitionNode = getDefinitionNodeFromCaptures(captureMap);
       const defaultNodeLabel = getLabelFromCaptures(captureMap, provider);
       if (!defaultNodeLabel) continue;

@@ -249,7 +249,26 @@ export const processHeritage = async (
         captureMap[c.name] = c.node;
       });
 
-      if (!captureMap['heritage.class']) return;
+      if (!captureMap['heritage.class']) {
+        // Form-based heritage: the form (e.g. Clojure extend-protocol) has
+        // no class definition co-located but declares heritage edges that
+        // resolve cross-file. Same routing as the worker / extracted path.
+        if (
+          heritageExtractor?.extractForm &&
+          captureMap['heritage.form'] &&
+          captureMap['heritage.head']
+        ) {
+          const items = heritageExtractor.extractForm(
+            captureMap['heritage.form'],
+            captureMap['heritage.head'].text,
+            { filePath: file.path, language },
+          );
+          for (const item of items) {
+            resolveAndAddHeritageEdge(graph, item, file.path, language, ctx);
+          }
+        }
+        return;
+      }
       if (!heritageExtractor) return;
 
       const heritageItems = heritageExtractor.extract(captureMap, {
@@ -453,6 +472,31 @@ export async function extractExtractedHeritageFromFiles(
               kind: item.kind,
             });
           }
+        }
+        continue;
+      }
+
+      // Form-based heritage (e.g. Clojure extend-protocol/extend-type/extend
+      // and inline defrecord/deftype protocol blocks). The capture supplies
+      // the whole list_lit + the head sym; the extractor walks the form's
+      // children to produce one HeritageInfo per (type, protocol) pair.
+      if (
+        provider.heritageExtractor?.extractForm &&
+        captureMap['heritage.form'] &&
+        captureMap['heritage.head']
+      ) {
+        const items = provider.heritageExtractor.extractForm(
+          captureMap['heritage.form'],
+          captureMap['heritage.head'].text,
+          { filePath: file.path, language },
+        );
+        for (const item of items) {
+          out.push({
+            filePath: file.path,
+            className: item.className,
+            parentName: item.parentName,
+            kind: item.kind,
+          });
         }
         continue;
       }

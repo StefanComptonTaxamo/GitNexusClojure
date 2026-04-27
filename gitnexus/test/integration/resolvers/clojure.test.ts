@@ -31,7 +31,9 @@ describe.skipIf(!clojureAvailable)('Clojure end-to-end resolution', () => {
 
   it('emits Module nodes for both ns forms', () => {
     const modules = getNodesByLabel(result, 'Module');
-    expect(modules).toEqual(expect.arrayContaining(['sample.core', 'sample.util']));
+    expect(modules).toEqual(
+      expect.arrayContaining(['sample.core', 'sample.util', 'sample.extensions']),
+    );
   });
 
   it('emits Function nodes for defn and (def x (fn …))-promoted vars', () => {
@@ -91,5 +93,25 @@ describe.skipIf(!clojureAvailable)('Clojure end-to-end resolution', () => {
     const classes = getNodesByLabel(result, 'Class');
     expect(traits).toContain('IShape');
     expect(classes).toContain('Circle');
+  });
+
+  it('emits IMPLEMENTS edges for inline (defrecord Circle [r] IShape …)', () => {
+    const implementsEdges = getRelationships(result, 'IMPLEMENTS');
+    const circleToShape = implementsEdges.find(
+      (e) => e.source === 'Circle' && e.target === 'IShape',
+    );
+    expect(circleToShape).toBeDefined();
+  });
+
+  it('emits IMPLEMENTS edges for free-floating (extend-protocol IShape Square …)', () => {
+    // Square is defined in extensions.clj; IShape lives in core.clj.
+    // The extend-protocol form sits in extensions.clj — none of these are
+    // co-located, so the heritage edge can only land if the form-based
+    // heritage path is wired end-to-end.
+    const implementsEdges = getRelationships(result, 'IMPLEMENTS');
+    const squareToShape = implementsEdges.find(
+      (e) => e.source === 'Square' && e.target === 'IShape',
+    );
+    expect(squareToShape).toBeDefined();
   });
 });

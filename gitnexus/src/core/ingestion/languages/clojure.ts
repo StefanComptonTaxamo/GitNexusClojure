@@ -31,6 +31,8 @@ import { createImportResolver } from '../import-resolvers/resolver-factory.js';
 import { clojureImportConfig } from '../import-resolvers/configs/clojure.js';
 import { createCallExtractor } from '../call-extractors/generic.js';
 import { clojureCallConfig } from '../call-extractors/configs/clojure.js';
+import { createHeritageExtractor } from '../heritage-extractors/generic.js';
+import { clojureHeritageConfig } from '../heritage-extractors/configs/clojure.js';
 import type { SyntaxNode } from '../utils/ast-helpers.js';
 import type { NodeLabel } from 'gitnexus-shared';
 
@@ -286,6 +288,7 @@ export const clojureProvider = defineLanguage({
   exportChecker: () => true,
   importResolver: createImportResolver(clojureImportConfig),
   callExtractor: createCallExtractor(clojureCallConfig),
+  heritageExtractor: createHeritageExtractor(clojureHeritageConfig),
   builtInNames: BUILT_INS,
   enclosingFunctionFinder: clojureEnclosingFunctionFinder,
 });

@@ -395,7 +395,7 @@ Unified 3-tier algorithm (`model/resolution-context.ts`), per-language `importSe
 | `named` | TS, JS, Java, C#, Rust, PHP, Kotlin | Only explicitly imported names visible |
 | `wildcard-leaf` | Go, Ruby, Swift, Dart | Whole-package import, no transitive re-exports |
 | `wildcard-transitive` | C, C++ | `#include` closure chains through re-exports |
-| `namespace` | Python | Module aliases resolved at call site |
+| `namespace` | Python, Clojure | Module aliases resolved at call site |
 
 ### Chunked parse-and-resolve
 
@@ -413,6 +413,7 @@ Workers: `workers/worker-pool.ts`, `workers/parse-worker.ts`.
 All languages emit unified `ExtractedHeritage` (child, parent, `EXTENDS`/`IMPLEMENTS`). MRO phase walks the heritage graph using per-language strategy:
 - **`first-wins`** — Java, C#, C++, TS, Ruby, Go
 - **`c3`** — Python (C3 linearization)
+- **`clojure-protocol`** — Clojure (protocol satisfaction; `extend-*` retroactive heritage and full resolution land in a follow-up phase)
 - **`none`** — single-inheritance languages
 
 Unified walk: `lookupMethodByOwnerWithMRO()` in `model/resolve.ts`.

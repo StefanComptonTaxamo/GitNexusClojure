@@ -18,12 +18,13 @@
  */
 import { SupportedLanguages } from 'gitnexus-shared';
 import { defineLanguage } from '../language-provider.js';
+import { LANGUAGE_QUERIES } from '../tree-sitter-queries.js';
 
 export const clojureProvider = defineLanguage({
   id: SupportedLanguages.Clojure,
   parseStrategy: 'tree-sitter',
   extensions: ['.clj', '.cljc', '.cljs', '.edn'],
-  treeSitterQueries: '',
+  treeSitterQueries: LANGUAGE_QUERIES[SupportedLanguages.Clojure],
   importSemantics: 'namespace',
   mroStrategy: 'clojure-protocol',
   typeConfig: {

@@ -1332,6 +1332,146 @@ export const DART_QUERIES = `
       (type_identifier) @heritage.trait))) @heritage
 `;
 
+// ─── Clojure ──────────────────────────────────────────────────────────────────
+//
+// Tree-sitter-clojure produces a homogeneous AST where every form is `list_lit`
+// and every identifier is `sym_lit (sym_name)`. We discriminate core forms by
+// matching on the head symbol (the first child of a list).
+//
+// The `.` anchors require the captured `sym_lit` to be the FIRST and SECOND
+// named children, which (a) avoids matching nested call sites and (b) lets us
+// pick out the head and the symbol bearing the name.
+//
+// Limitations of this initial cut (Phase 4-lite):
+//   - No call captures: `(f x)` form is hard to distinguish from special forms
+//     (let/if/do/fn/case/cond …) without a denylist that depends on macros.
+//   - No heritage captures: `extend-protocol`/`extend-type`/`extend` and the
+//     protocol-impl blocks inside `defrecord`/`deftype` need the Phase 2
+//     free-floating heritage channel.
+//   - No threading-macro expansion: `(-> x f g)` re-threads `x` through `f`/`g`
+//     — needs a bespoke call extractor.
+//   - `def` is captured as a variable; we do not yet differentiate
+//     `(def x (fn …))` (which should be a function) from `(def x 42)`.
+//   - `:refer` named bindings are not yet emitted.
+//   - Reader conditionals `#?(:clj … :cljs …)` are walked as plain lists; the
+//     `dialect` tag is not yet applied.
+//
+// All of these land in follow-up phases.
+
+const CLOJURE_QUERIES = `
+; ── Definitions ──────────────────────────────────────────────────────────────
+
+; (defn name [args] body) / (defn- name …) / (definline name …)
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  (#match? @head "^(defn|defn-|definline)$")) @definition.function
+
+; (defmulti name dispatch-fn) — also a Function node; the isMultimethod tag
+; is applied later in Phase 6 via labelOverride / property enrichment.
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  (#eq? @head "defmulti")) @definition.function
+
+; (defmethod name dispatch-val [args] body) — currently a Method node; the
+; DISPATCHES_TO edge to the corresponding defmulti lands in Phase 6.
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  (#eq? @head "defmethod")) @definition.method
+
+; (defprotocol Name (method [args]) …) — a Trait in graph terms.
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  (#eq? @head "defprotocol")) @definition.trait
+
+; (defrecord Name [fields] …) and (deftype Name [fields] …) — both are Class.
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  (#match? @head "^(defrecord|deftype)$")) @definition.class
+
+; (definterface Name (method-sig [args])) — Java-interop interface.
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  (#eq? @head "definterface")) @definition.interface
+
+; (ns my.app …) — Module node.
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  (#eq? @head "ns")) @definition.module
+
+; (def name expr) — a Variable. (def x (fn …)) is currently still a Variable;
+; that promotion is deferred.
+(list_lit
+  .
+  (sym_lit (sym_name) @head)
+  .
+  (sym_lit (sym_name) @name)
+  (#eq? @head "def")) @definition.variable
+
+; ── Imports ──────────────────────────────────────────────────────────────────
+;
+; Inside an (ns …) form, :require / :use / :import clauses look like:
+;   (:require [foo.bar :as fb] [foo.baz :refer [a b]])
+;   (:use foo.bar)
+;   (:import [java.util Date Calendar])
+;
+; We capture the FIRST sym_lit inside each [vector] (the namespace) or after
+; the :require/:use/:import keyword. This is a best-effort first cut — full
+; :as / :refer handling is a Phase 4 follow-up.
+
+; (:require [foo.bar :as fb])  — vector form
+(list_lit
+  .
+  (kwd_lit (kwd_name) @kw)
+  (vec_lit
+    .
+    (sym_lit (sym_name) @import.source))
+  (#match? @kw "^(require|use)$")) @import
+
+; (:require foo.bar) — bare-symbol form
+(list_lit
+  .
+  (kwd_lit (kwd_name) @kw)
+  (sym_lit (sym_name) @import.source)
+  (#match? @kw "^(require|use)$")) @import
+
+; (:import [java.util Date Calendar]) — Java import vector form
+(list_lit
+  .
+  (kwd_lit (kwd_name) @kw)
+  (vec_lit
+    .
+    (sym_lit (sym_name) @import.source))
+  (#eq? @kw "import")) @import
+
+; (:import java.util.Date) — Java import bare form
+(list_lit
+  .
+  (kwd_lit (kwd_name) @kw)
+  (sym_lit (sym_name) @import.source)
+  (#eq? @kw "import")) @import
+`;
+
 import { SupportedLanguages } from 'gitnexus-shared';
 
 export const LANGUAGE_QUERIES: Record<SupportedLanguages, string> = {
@@ -1351,5 +1491,5 @@ export const LANGUAGE_QUERIES: Record<SupportedLanguages, string> = {
   [SupportedLanguages.Dart]: DART_QUERIES,
   [SupportedLanguages.Vue]: TYPESCRIPT_QUERIES, // Vue <script> blocks are parsed as TypeScript
   [SupportedLanguages.Cobol]: '', // Standalone regex processor — no tree-sitter queries
-  [SupportedLanguages.Clojure]: '', // Scaffold — queries land in Phase 4
+  [SupportedLanguages.Clojure]: CLOJURE_QUERIES,
 };
